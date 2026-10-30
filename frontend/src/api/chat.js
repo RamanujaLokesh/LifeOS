@@ -1,16 +1,26 @@
 const API_URL = import.meta.env.VITE_API_URL;
 
+async function request(path, options) {
+  const res = await fetch(`${API_URL}${path}`, options);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Request failed (${res.status})`);
+  }
+  return res.json();
+}
 
-export async function sendChat(messages){
-    const res = await fetch(`${API_URL}/api/chat`,{
-        method: 'POST',
-        headers: {"content-type": "application/json"},
-        body: JSON.stringify({messages})
-    });
-    if (!res.ok){
-        const err  = await res.json().catch(()=>({}));
-        throw new Error(err.detail || "Failed to send chat message");
-    }
-    const data = await res.json();
-    return data.reply;
+export function sendChat(conversationId, message) {
+  return request("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ conversation_id: conversationId, message }),
+  });
+}
+
+export function listConversations() {
+  return request("/api/conversations");
+}
+
+export function getMessages(conversationId) {
+  return request(`/api/conversations/${conversationId}/messages`);
 }

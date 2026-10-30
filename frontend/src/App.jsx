@@ -1,17 +1,39 @@
 import { useEffect, useRef, useState } from "react";
-import { sendChat } from "./api/chat";
+import { getMessages, listConversations, sendChat } from "./api/chat";
 import "./App.css";
 
 export default function App() {
+  const [conversationId, setConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const bottomRef = useRef(null);
 
+  // On first load, open the most recent conversation (if any).
+  useEffect(() => {
+    (async () => {
+      try {
+        const convs = await listConversations();
+        if (convs.length > 0) {
+          setConversationId(convs[0].id);
+          setMessages(await getMessages(convs[0].id));
+        }
+      } catch (err) {
+        setError(err.message);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  function handleNewChat() {
+    setConversationId(null);
+    setMessages([]);
+    setError("");
+  }
 
   async function handleSend(e) {
     e.preventDefault();
@@ -25,8 +47,9 @@ export default function App() {
     setLoading(true);
 
     try {
-      const reply = await sendChat(next);
-      setMessages([...next, { role: "assistant", content: reply }]);
+      const data = await sendChat(conversationId, text);
+      setConversationId(data.conversation_id);
+      setMessages([...next, { role: "assistant", content: data.reply }]);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -36,7 +59,10 @@ export default function App() {
 
   return (
     <div className="chat">
-      <header className="chat-header">LifeOS</header>
+      <header className="chat-header">
+        <span>LifeOS</span>
+        <button onClick={handleNewChat}>New chat</button>
+      </header>
 
       <main className="chat-messages">
         {messages.length === 0 && (
