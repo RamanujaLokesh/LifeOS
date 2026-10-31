@@ -6,6 +6,7 @@ async function request(path, options) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `Request failed (${res.status})`);
   }
+  if(res.status===204) return null;
   return res.json();
 }
 
@@ -23,4 +24,8 @@ export function listConversations() {
 
 export function getMessages(conversationId) {
   return request(`/api/conversations/${conversationId}/messages`);
+}
+
+export function deleteConversation(conversationId){
+  return request(`/api/conversations/${conversationId}`,{method:"DELETE"});
 }

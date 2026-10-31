@@ -76,3 +76,12 @@ def get_recent_messages(db: Session, conversation_id: uuid.UUID, limit: int = 30
     )
     rows.reverse()
     return [{"role": m.role, "content": m.content} for m in rows]
+
+
+def delete_conversation(db: Session, *, user_id: uuid.UUID, conversation_id: uuid.UUID) -> bool: # the * makes the arguments keyword only
+    conv = get_conversation(db, user_id=user_id, conversation_id=conversation_id)
+    if conv is None:
+        return False
+    db.delete(conv)  # messages are removed by the database via ON DELETE CASCADE
+    db.commit()
+    return True
