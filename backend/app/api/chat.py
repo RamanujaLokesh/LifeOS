@@ -9,6 +9,9 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.services import conversation_service as cs
 from app.services.chat_service import generate_reply
+from app.api.deps import get_current_user
+from app.db.models import User
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
@@ -63,8 +66,7 @@ class MessageOut(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, db: Session = Depends(get_db)):
-    user = cs.get_or_create_dev_user(db)
+def chat(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
 
     conv = None
     history: list[dict] = []
@@ -96,14 +98,12 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
     return ChatResponse(conversation_id=conv.id, reply=reply)
 
 @router.get("/conversations", response_model=list[ConversationOut])
-def conversations(db: Session = Depends(get_db)):
-    user = cs.get_or_create_dev_user(db)
+def conversations(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return cs.list_conversations(db, user.id)
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageOut])
-def conversation_messages(conversation_id: uuid.UUID, db: Session = Depends(get_db)):
-    user = cs.get_or_create_dev_user(db)
+def conversation_messages(conversation_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     conv = cs.get_conversation(db, conversation_id, user.id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -111,8 +111,7 @@ def conversation_messages(conversation_id: uuid.UUID, db: Session = Depends(get_
 
 
 @router.delete("/conversations/{conversation_id}", status_code=204)
-def delete_conversation(conversation_id: uuid.UUID, db: Session = Depends(get_db)):
-    user = cs.get_or_create_dev_user(db)
+def delete_conversation(conversation_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     deleted = cs.delete_conversation(db, user_id=user.id, conversation_id=conversation_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")

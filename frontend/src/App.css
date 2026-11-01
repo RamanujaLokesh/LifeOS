@@ -43,3 +43,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   .sidebar.open { transform: translateX(0); box-shadow: 0 0 24px rgba(0, 0, 0, 0.2); }
   .backdrop { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 10; }
 }
+.header-spacer { flex: 1; }
+.user-name { font-weight: 400; font-size: 14px; color: #52525b; }
+.logout-btn { border: 1px solid #d4d4d8; background: #fff; border-radius: 8px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+
+.center-screen { display: flex; align-items: center; justify-content: center; min-height: 100dvh; background: #f4f4f5; }
+.auth-card { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 360px; margin: 16px; padding: 24px; background: #fff; border-radius: 16px; box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08); box-sizing: border-box; }
+.auth-card h1 { margin: 0; text-align: center; }
+.auth-card .hint { margin: 0 0 4px; }
+.auth-card input { padding: 12px; border: 1px solid #d4d4d8; border-radius: 10px; font-size: 16px; }
+.auth-card button[type="submit"] { padding: 12px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; font-size: 16px; cursor: pointer; }
+.link-btn { background: none; border: 0; color: #2563eb; cursor: pointer; font-size: 14px; }
