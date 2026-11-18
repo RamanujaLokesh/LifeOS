@@ -6,6 +6,8 @@ import {
   sendChat,
 } from "../api/chat";
 import Sidebar from "../components/Sidebar";
+import MemoryReview from "../components/MemoryReview.jsx";
+import { approveMemory, deleteMemory, listMemories } from "../api/memories";
 
 export default function Chat({ user, onLogout }) {
   const [conversations, setConversations] = useState([]);
@@ -16,6 +18,8 @@ export default function Chat({ user, onLogout }) {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pending, setPending] = useState([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const bottomRef = useRef(null);
   const latestOpen = useRef(null); // guards against slow, out-of-order responses
@@ -52,6 +56,10 @@ export default function Chat({ user, onLogout }) {
     setSidebarOpen(false);
   }
 
+  function refreshPending() {
+    listMemories("pending").then(setPending).catch(() => {});
+  }
+
   useEffect(() => {
     (async () => {
       try {
@@ -61,6 +69,7 @@ export default function Chat({ user, onLogout }) {
         setError(err.message);
       }
     })();
+    refreshPending(); // NEW (1): load pending memories when the page opens
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -87,6 +96,7 @@ export default function Chat({ user, onLogout }) {
         setActiveId(data.conversation_id);
       }
       refreshConversations().catch(() => {}); // sidebar refresh must never undo a successful send
+      setTimeout(refreshPending, 6000); // NEW (2): extraction runs in the background after the reply
     } catch (err) {
       // The server saved nothing, so undo the optimistic message and return the text.
       setMessages(previous);
@@ -111,6 +121,24 @@ export default function Chat({ user, onLogout }) {
     }
   }
 
+  async function handleApprove(id) {
+    try {
+      await approveMemory(id);
+      setPending((p) => p.filter((m) => m.id !== id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDismiss(id) {
+    try {
+      await deleteMemory(id);
+      setPending((p) => p.filter((m) => m.id !== id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div className="app">
       <Sidebar
@@ -126,12 +154,20 @@ export default function Chat({ user, onLogout }) {
 
       <div className="chat">
         <header className="chat-header">
-       <button className="menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">☰</button>
-       <span>LifeOS</span>
-       <span className="header-spacer" />
-       <span className="user-name">{user.name}</span>
-       <button className="logout-btn" onClick={onLogout}>Log out</button>
-     </header>
+          <button className="menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+            ☰
+          </button>
+          <span>LifeOS</span>
+          <span className="header-spacer" />
+          {/* NEW (3): shows only when there are suggestions to review */}
+          {pending.length > 0 && (
+            <button className="mem-btn" onClick={() => setReviewOpen(true)}>
+              Memories ({pending.length})
+            </button>
+          )}
+          <span className="user-name">{user.name}</span>
+          <button className="logout-btn" onClick={onLogout}>Log out</button>
+        </header>
 
         <main className="chat-messages">
           {loadingMessages && <p className="hint">Loading conversation…</p>}
@@ -165,6 +201,16 @@ export default function Chat({ user, onLogout }) {
           </button>
         </form>
       </div>
+
+      {/* NEW (4): the review modal */}
+      {reviewOpen && (
+        <MemoryReview
+          memories={pending}
+          onApprove={handleApprove}
+          onDismiss={handleDismiss}
+          onClose={() => setReviewOpen(false)}
+        />
+      )}
     </div>
   );
 }

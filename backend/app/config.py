@@ -9,5 +9,6 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 7   # 7 days
     allow_signup: bool = False
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    memory_extraction_enabled: bool = True
 
 settings = Settings()

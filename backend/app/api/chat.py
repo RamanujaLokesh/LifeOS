@@ -2,7 +2,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,8 @@ from app.services import conversation_service as cs
 from app.services.chat_service import generate_reply
 from app.api.deps import get_current_user
 from app.db.models import User
-
+from app.config import settings
+from app.services import memory_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
@@ -64,36 +65,29 @@ class MessageOut(BaseModel):
 #     cs.save_message(db, conv.id, "assistant", reply)
 #     return ChatResponse(conversation_id=conv.id, reply=reply)
 
-
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-
-    conv = None
-    history: list[dict] = []
-    if req.conversation_id:
-        conv = cs.get_conversation(db, user_id=user.id, conversation_id=req.conversation_id)
-        if conv is None:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-        history = cs.get_recent_messages(db, conv.id, limit=30)
-
-    history.append({"role": "user", "content": req.message})
-
-    # Call the model BEFORE saving anything, so a failure leaves no orphan data.
-    try:
-        reply = generate_reply(history, user.name, user.timezone)
-    except Exception:
-        logger.exception("LLM call failed")
-        raise HTTPException(
-            status_code=502,
-            detail="The AI service failed and your message was not sent. Please try again.",
-        )
+def chat(
+    req: ChatRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # ... everything up to the model call stays exactly the same ...
 
     if conv is None:
         conv = cs.create_conversation(db, user.id, title=req.message[:50])
-    # Two separate commits on purpose: now() is fixed per transaction, so two
-    # messages in one commit would get identical timestamps and ambiguous order.
-    cs.save_message(db, conv.id, "user", req.message)
+    user_msg = cs.save_message(db, conv.id, "user", req.message)
     cs.save_message(db, conv.id, "assistant", reply)
+
+    if settings.memory_extraction_enabled:
+        recent = history[-5:] + [{"role": "assistant", "content": reply}]
+        background_tasks.add_task(
+            memory_service.extract_and_store,
+            user.id,
+            recent,
+            user_msg.id,
+            user.timezone,
+        )
 
     return ChatResponse(conversation_id=conv.id, reply=reply)
 
